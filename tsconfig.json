@@ -1,0 +1,9 @@
+{
+  "compilerOptions":{
+    "moduleResolution":"node", // 解决ESM引入第三方包，报错问题
+    "skipLibCheck":true, // 是否跳过node_modules的模块检查
+    "module":"ESNext",
+    "lib":["ESNext","DOM"],
+    "allowSyntheticDefaultImports":true
+  }
+}

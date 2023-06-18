@@ -1,0 +1,12 @@
+.footer {
+  width: 200px;
+  height: 200px;
+  background-color: pink;  
+}
+
+.flexContain{
+  height: 200px;
+  background-color: red;
+  /* css新特性：响应式布局 */
+  width: clamp(300px 50%, 500px)
+}

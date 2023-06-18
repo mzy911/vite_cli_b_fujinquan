@@ -1,0 +1,23 @@
+html, body {
+  width: 100%;
+  height: 100%;
+  background-color:pink;
+}:root {
+  --globalColor: lightBlue;
+}
+.common-module_footer_58a38 {
+  width: 200px;
+  height: 200px;
+  background-color: pink;  
+}
+
+.common-module_flexContain_12a72{
+  height: 200px;
+  background-color: red;
+  /* css新特性：响应式布局 */
+  width: clamp(300px 50%, 500px)
+}.common-module_box_ed55e {
+  width: 200px;
+  height: 200px;
+  background-color: var(--globalColor);
+}
