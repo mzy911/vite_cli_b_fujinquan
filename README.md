@@ -1,85 +1,245 @@
-// 0、浏览器支持 ESM
-// 0.1 天然支持 html、css、js 文件
-// 0.2、对于js文件
-//     只加载 "/"、 "./"、"../"
-//     不识别 import、require 不会自动去查找 node_modules 下的包，一个包可能应用成千上万个包
-// 0.4、webapck
-//     a、将 EMS、commonjs 都转为 webpack.require() 自己的模式加载
-//     b、webpack 先进行整体的构建，再开启一个服务器
-//     c、vite 先启动一个服务器，再依据入口依次加载依赖模块
+### 浏览器支持 ESM
+```js
+1、天然支持 html、css、js 文件
+2、对于js文件
+  只加载 "/"、 "./"、"../"
+  不识别 import、require （浪费性能、避免递归查询）
+3、webapck
+  a、将 EMS、commonjs 都转为 webpack.require() 自己的模式加载
+  b、webpack 先进行整体的构建，再开启一个服务器
+  c、vite 先启动一个服务器，再依据入口依次加载依赖模块
+```
+
+
+### vite 加载非相对路径：esm、commonjs
+```js
+1、vite会做路径补全：
+  /node_modules/.vite/deps/lodash.js
+2、依赖预构建
+  a、使用 esbuild 都转化为 esm 的方式，放到 /node_modules/vite/deps...
+  b、内部使用时，直接引入 /node_modules/.vite/deps...
+  c、解决了网络多包传输的问题：common、esm 直接转我 var ...
+    例如：export {defaule as a} from './a' 
+    转为：function a(){}
+```
 
 
 
-// 1、针对于非相对路径：esm、commonjs
-// 1.1、vite会做路径补全：
-//     /node_modules/.vite/deps/lodash.js
-// 1.2、依赖预构建
-//    a、使用 esbuild 都转化为 esm 的方式，放到 /node_modules/.vite/deps...
-//    b、内部使用时，直接引入 /node_modules/.vite/deps...
-//    c、解决了网络多包传输的问题：common、esm 直接转我 var ...
-//       例如：export {defaule as a} from './a' 
-//       转为：function a(){}
+### vite 常用配置
+```js
+import { options } from "less"
+import path from "path"
+import { defineConfig } from 'vite'
+import { viteMockServe } from "vite-plugin-mock"
+import checker from 'vite-plugin-checker'
+import viteCompression from 'vite-plugin-compression';
+import importToCDN from 'vite-plugin-cdn-import'
+import postcssPresetEnv from "postcss-preset-env"
+import { ViteAliases } from 'vite-aliases'
+
+
+export default defineConfig({
+  // 客户端获取 .env 内声明的环境变量
+  // 1、默认前缀为'VITE_'
+  // 2、可以自定义
+  // 3、不遵守规则是获取不到的
+  envPrefix: "VITE_",
+
+
+  // vite项目运行前会进行预构建, 手动配置某些库不进行依赖预构建
+  optimizeDeps: {
+    exclude: []
+  },
+
+
+  resolve: {
+    // 读取文件优先级
+    extensions: [".js", ".ts", ".vue", "jsx", "tsx", "json"],
+    // 配置静态文件别称，可以使用地方放库 ViteAliases
+    alias: {
+      "@": path.resolve(__dirname, './src'),
+      "@style": path.resolve(__dirname, './src/common/style/'),
+      "@image": path.resolve(__dirname, './src/common/image/'),
+    }
+  },
+
+  // 静态文件的路径，不会处理直接copy的文件
+  // publicDir:'/public',
+  server: {
+    proxy: {
+      "/api1": {
+        target: "https://www.360.com", // https://www.360.com/api
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '') // 重写路径
+      }
+    }
+  },
+
+
+  css: {
+    // css 模块化相关配置
+    modules: {
+      // 转换后类名的现实方式：camelCase、camelCaseOnly、dashes、dashesOnly
+      localsConvention: 'camelCase',
+      // 是否给 *.model.css 文件开启模块化：local、global
+      scopeBehaviour: 'local',
+      // 禁止某些文件开启模块化
+      globalModulePaths: ["./common/style/common.module.css"],
+      // 自定义生成文件名称的规则
+      generateScopedName: "[name]_[local]_[hash:5]",
+      // "盐"：默认根据类名生成h ash、可以自定义
+      hashPrefix: "AAAA",
+    },
+
+    // css 预处理器相关配置
+    preprocessorOptions: {
+      // 只要安装 less 就可以直接使用sass语法
+      less: {
+        // 只计算带有括号的值 (100 / 2)
+        math: "always",
+        // 定义全局变量
+        // 1、在less文件内定义变量： @mainColor
+        // 2、在其他 less 文件内直接使用 @mainColor 变量
+        globalVars: {
+          mainColor: 'red'
+        },
+      },
+      // 只要安装 sass 就可以直接使用sass语法
+      sass: {
+
+      }
+    },
+
+    // 是否开启文件索引：开发环境用来检测错误位置
+    devSourcemap: false,
+
+    // 配置 postcss
+    // 或者使用 postcss.config.js 配置文件
+    postcss: {
+      plugins: [
+        postcssPresetEnv()
+      ]
+    }
+  },
+
+
+  // 打包构建
+  build: {
+    // 关闭压缩
+    "minify": false,
+
+    // 配置构建策略
+    rollupOptions: {
+      // 多入口打包
+      // input:{
+      //   main: path.resolve(__dirname, "./index.html"),
+      //   product:path.resolve(__dirname, "./producgt.html")
+      // },
+      output: {
+        assetFileNames: "[hash].[name].[ext]", // ext：文件占位符
+        // 分组打包
+        manualChunks: (id) => {
+          if (id.includes("node_modules")) {
+            return "vender"
+          }
+        }
+      },
+
+      // 打包的时候，将某些第三方包排出在外(页面加载时使用CDN)
+      external: []
+    },
+
+    // 小于4k，base64
+    assetsInlineLimit: 40960,
+
+    // 打包后的根目录，默认为 dist
+    outDir: "dist",
+
+    // 打包后存储静态文件的文件夹名称
+    assetsDir: "static",
+
+    // 每次构建是否清楚 dist 下文件
+    emptyOutDir: true,
+
+  },
+
+
+  // 使用插件
+  plugins: [
+    // 自定义静态资源路径
+    ViteAliases(),
+    MyViteHtml({
+      inject: {
+        data: {
+          title: '首页'
+        }
+      }
+    }),
+
+    // MyViteMock(),
+    viteMockServe({
+      mockPath: 'mock', // 自定义文件夹名称，默认下根目录下
+      // localEnabled: command == 'serve'
+    }),
 
 
 
-// 2、vite 语法提示问题
-// 2.1、使用 defineConfig 包裹
-// import { defineConfig } from 'vite'
-// export default defineConfig({
-//   // ...
-// })
-// 2.2、使用 defineConfig 包裹
-// /** @type {import('vite').UserConfig} */
-// export default {
-//   // ...
-// }
+    // 开启压缩，gz
+    // 1、服务器读取 gzip 文件，需要设置请求头 content-encoding:gzip
+    // 2、浏览器发现 gzip 会自动解压
+    viteCompression(),
 
 
-
-// 3、环境变量：vite中内置了 dotenv 插件
-// 3.1 服务器端
-// 3.1.1 Vite 默认是不加载 .env 文件
-// 3.1.2 Vite 导出的 loadEnv 函数来加载指定的 .env 文件
-// 3.1.3 配置环境的文件介绍
-//     .env：所有环境都用到的环境变量
-//     .env.development：开发环境下用到的环境变量
-//     .env.production：生产环境下用到的环境变量
-// 3.2 客户端
-// 3.2.1 使用 import.meta.env 获取环境变量
-// 3.2.2 默认禁止手动注入参数，需要手动处理
-//       a：添加前缀：vite_APP_KEY
-//       b：自定义前缀：envPrefix:"ENV"
+    // 可以在工作线程中运行TypeScript, VLS, vue-tsc, ESLint, Stylelint
+    checker({ typescript: true }),
 
 
+    // 使用cdn
+    importToCDN({
+      // 等同于：external:['lodash']
+      modules: [
+        {
+          name: 'lodash',
+          var: '_', // 报漏的全局名称
+          path: `https://cdn.bootcdn.net/ajax/libs/lodash.js/4.17.21/lodash.min.js`,
+        },
+      ],
+    }),
 
 
-// 4、处理css文件，天生支持css
-// 4.1 css模块化
-//   a、服务器端直接使用 fs 模块读取 index.css 文件内容
-//   b、创建一个 style 标签，插入到 html 中
-//   c、css文件中的内容会直接被替换为js脚本（方便热更新、css模块化）
-//   d、使用 cssmodule 解决样式覆盖的问题
-// 4.2 自定义配置 less、sass
-// 4.3 配置 postcss
+    // 自定义插件毁掉函数( 钩子函数 )
+    {
+      config(options) {
+        // console.log('插件配置', options);
+      },
+      configureServer(server) {
+        console.log("配置服务器");
+      },
+      transformIndexHtml(html) {
+        console.log("转译html");
+      },
+      configResolved(options) {
+        // console.log("整个配置文件解析完成之后触发的钩子", options);
+      },
+      // 预览服务
+      configurePreviewServer(server) {
+
+      },
+      //  *********** 获取rollup相关的配置，跟上面的函数功能基本一一对应  ***********  
+      options(rollupOptions) {
+        // console.log('rollupOptions', rollupOptions);
+      },
+      buildStart(fullOptions) {
+        // console.log("整个配置文件解析完成之后触发的钩子", options);
+      }
+    },
+    // postcssPresetEnv()
+  ],
+
+})
 
 
-
-// 5、加载静态资源：raw、url
-// 5.1 import * from '*?raw' 
-// 5.2 配置别名
-
-
-// 6、自定义插件
-
-
-// 7、结合ts
-// 7.1 天生支持ts
-// 7.2 结合 vite-plugin-checker
-
-
-
-// 8、vite性能优化
-
+```
 
 
 
